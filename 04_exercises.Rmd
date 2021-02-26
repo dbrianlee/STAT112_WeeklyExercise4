@@ -12,7 +12,7 @@ output:
 
 
 ```{r setup, include=FALSE}
-#knitr::opts_chunk$set(echo = TRUE, error=TRUE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE, error=TRUE, message=FALSE, warning=FALSE)
 ```
 
 ```{r libraries}
@@ -116,6 +116,7 @@ ggmap(world) + # creates the map "background"
   theme(legend.background = element_blank())
 ```
 
+In North America and Eurpoe, we can see that the vast majority of the locations are either Company Owned or Licensed locations, as opposed to East Asia (South Korea, China, Japan) and India, where the Starbucks locations are identified as Joint Ventures. We can see a similar trend in Eastern Europe, where locations in this region are mostly Joint Ventures as well.
 
   2. Construct a new map of Starbucks locations in the Twin Cities metro area (approximately the 5 county metro area).  
 
@@ -393,7 +394,7 @@ covid19 %>%
   theme(legend.background = element_blank(),
         legend.text = element_text(color = "black"))
 ```
-  
+This map fails to account for population density in its counting of cases. It skews the data by making more populous states such as California and Texas seem worse off than they actually are in comparison to the other states. We can fix this by incormporating some measure os population in relation to the number of COVID Cases.
   
   12. Now add the population of each state to the dataset and color the states by most recent cumulative cases/10,000 people. See the code for doing this with the Starbucks data. You will need to make some modifications. 
   
@@ -402,7 +403,7 @@ covid19 %>%
   mutate(state = str_to_lower(state)) %>% 
   group_by(state) %>% 
   summarize(cases = max(cases)) %>% 
-  left_join(census_pop_est_2018, by = c("state" = "state")) %>% 
+  left_join(census_pop_est_2018, by = c("state")) %>% 
   mutate(cum_cases_per_10000 = (cases/est_pop_2018)*10000) %>% 
   ggplot(aes(fill = cum_cases_per_10000)) +
   geom_map(map = states_map,
@@ -423,8 +424,8 @@ covid19 %>%
 
 These exercises use the datasets `MplsStops` and `MplsDemo` from the `carData` library. Search for them in Help to find out more information.
 
-  14. Use the `MplsStops` dataset to find out how many stops there were for each neighborhood and the proportion of stops that were for a suspicious vehicle or person. Sort the results from most to least number of stops. Save this as a dataset called `mpls_suspicious` and display the table.  
-  
+  14. Use the `MplsStops` dataset to find out how many stops there were for each neighborhood and the proportion of stops that were for a suspicious vehicle or person. Sort the results from most to least number of stops. Save this as a dataset called `mpls_suspicious` and display the table. 
+
 ```{r}
 mpls_suspicious <- MplsStops %>% 
   group_by(neighborhood) %>% 
@@ -443,7 +444,7 @@ prop_pal <- colorFactor(c("steelblue1", "tomato"),
                         domain = c("suspicious", "traffic"))
 
 leaflet(MplsStops) %>% 
-  addProviderTiles(providers$Stamen.TonerLite) %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>% 
   addCircleMarkers(lng = ~long, 
                    lat = ~lat, 
                    stroke = FALSE,
@@ -459,10 +460,61 @@ leaflet(MplsStops) %>%
 mpls_nbhd <- st_read("Minneapolis_Neighborhoods/Minneapolis_Neighborhoods.shp", quiet = TRUE)
 ```
 
+```{r}
+mpls_all <- mpls_nbhd %>% 
+  left_join(MplsDemo, 
+            by = c("BDNAME" = "neighborhood")) %>% 
+  left_join(mpls_suspicious, 
+            by = c("BDNAME" = "neighborhood"))
+```
+
+
   17. Use `leaflet` to create a map from the `mpls_all` data that colors the neighborhoods by `prop_suspicious`. Display the neighborhood name as you scroll over it. Describe what you observe in the map.
   
+```{r}
+mpls_pal <- colorNumeric("plasma",
+                         domain = mpls_all$prop_suspicious,
+                         reverse = TRUE)
+
+leaflet(mpls_all) %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addPolygons(stroke = FALSE,
+              fillOpacity = 1,
+              label = ~paste(BDNAME, ":", round(prop_suspicious, 2)),
+              fillColor = ~mpls_pal(prop_suspicious),
+              smoothFactor = 1) %>% 
+  addLegend(position = "topleft", 
+            pal = mpls_pal,
+            opacity = 1, 
+            values = ~prop_suspicious,
+            title = "")
+```
+
+The highest concentration of crimes classified as "suspicious" seems to be in Southeast Minneapolis. It is difficult to think of reasons as to why, as we do not have much information on the area's police precinct reputation, ethnic and racial demographics, and most importantly, what qualifies as "suspicious" to begin with. Seeing the stark divide in crimes between North Minneapolis and South Minneapolis makes me question whether or not city welfare funds are being distributed properly and if the north has a higher concentration of white individuals.
+
   18. Use `leaflet` to create a map of your own choosing. Come up with a question you want to try to answer and use the map to help answer that question. Describe what your map shows. 
-  
+
+It is a known fact that overpolicing tends to happen a lot in minority communities. In my map below, I want to answer the questions, "Which Minneapolis neighborhoods have the largest immigrant communities? Does over-policing happen to be an issue?" Using the map from the previous problem, which illustrates the proportion of crimes reported as "suspicious" and the map that I have created, we can see that immigrant communities in Minneapolis are the most prevalent near central Minneapolis/sourth central Minneapolis. By looking at the map from the previous map, we can see that there is an intersection between the neighborhoods which had some of the highest percentages of suspicious reports and the neighborhoods with the highest immigrant populations.
+
+```{r}
+mplsPolice_pal <- colorNumeric("plasma",
+                         domain = mpls_all$foreignBorn,
+                         reverse = TRUE)
+
+leaflet(mpls_all) %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addPolygons(stroke = FALSE,
+              fillOpacity = 1,
+              label = ~paste(BDNAME, ":", round(foreignBorn, 2)),
+              fillColor = ~mplsPolice_pal(foreignBorn),
+              smoothFactor = 1) %>% 
+  addLegend(position = "topleft", 
+            pal = mplsPolice_pal,
+            opacity = 1, 
+            values = ~foreignBorn,
+            title = "Prop of Black Individuals")
+```
+
   
 ## GitHub link
 
